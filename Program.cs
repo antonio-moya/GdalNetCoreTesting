@@ -19,13 +19,17 @@ namespace Test
         
         static void Main(string[] args)
         {
+            var SO = "WIN";
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) SO = "LINUX"; 
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) SO = "WIN";
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) { Console.WriteLine("MAC not supported"); System.Environment.Exit(0); }
 
             /* -------------------------------------------------------------------- */
             /*      Read config file  .                                             */
             /* -------------------------------------------------------------------- */
             var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             var builder = new ConfigurationBuilder()
-                .AddJsonFile($"appsettings.json", true, true)
+                .AddJsonFile($"appsettings.{SO}.json", true, true)
                 .AddJsonFile($"appsettings.{env}.json", true, true)
                 .AddEnvironmentVariables();
             var config = builder.Build();
@@ -44,12 +48,8 @@ namespace Test
                 logger.Error(ex, ex.StackTrace + " " + Gdal.GetLastErrorMsg());
             }
 
-            AKIII: leer congfigs json en función del SO
             var datapath = config["DATA_PATH"];
-            //if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) datapath = "/home/local/NILO/antonio/Escritorio/GeoTiffTests/data/";
-            //if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) datapath = @"C:\XXX\GeoTiffTests\data\";
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) { Console.WriteLine("MAC not supported"); System.Environment.Exit(0); }
-
+            
             if (true) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("===========================REPROJECTION coordinate testing==================================");
