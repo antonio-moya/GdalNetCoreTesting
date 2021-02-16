@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using NLog;
+using GDAL;
 using OSGeo.GDAL;
 using OSGeo.OGR;
 using OSGeo.OSR;

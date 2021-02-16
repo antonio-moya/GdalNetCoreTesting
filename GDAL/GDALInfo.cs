@@ -44,6 +44,9 @@ using OSGeo.OSR;
 
 
 
+namespace GDAL
+{
+
 /// <summary>
 /// A C# based sample to read GDAL raster data information.
 /// </summary>
@@ -252,4 +255,6 @@ class GDALInfo {
 
         return dfGeoX.ToString() + ", " + dfGeoY.ToString();
     }
+}
+
 }

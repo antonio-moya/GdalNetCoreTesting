@@ -9,7 +9,7 @@ using OSGeo.GDAL;
 using OSGeo.OGR;
 using OSGeo.OSR;
 
-namespace GDalTest
+namespace GDAL
 {
     /// <summary>
     /// 
