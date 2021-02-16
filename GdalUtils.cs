@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -8,7 +9,7 @@ using OSGeo.GDAL;
 using OSGeo.OGR;
 using OSGeo.OSR;
 
-namespace Test
+namespace GDalTest
 {
     /// <summary>
     /// Todo esto en: https://github.com/bertt/GdalOnNetCoreSample
@@ -92,11 +93,9 @@ namespace Test
 
         public static void ReprojectCoordinatesExample() {
 
-            var src = new OSGeo.OSR.SpatialReference("");
-            src.ImportFromEPSG(23030);
+            var src = new OSGeo.OSR.SpatialReference(EPSG2WKT(23030));
             Console.WriteLine($"SOURCE IsGeographic:" + src.IsGeographic() + " IsProjected:" + src.IsProjected());
-            var dst = new OSGeo.OSR.SpatialReference("");
-            dst.ImportFromEPSG(4326);
+            var dst = new OSGeo.OSR.SpatialReference(EPSG2WKT(4326));
             Console.WriteLine("DEST IsGeographic:" + dst.IsGeographic() + " IsProjected:" + dst.IsProjected());
             var ct = new OSGeo.OSR.CoordinateTransformation(src, dst);
             double[] p = new double[3];
@@ -104,6 +103,17 @@ namespace Test
             Console.WriteLine("From: x:" + p[0] + " y:" + p[1] + " z:" + p[2]);
             ct.TransformPoint(p);
             Console.WriteLine("To: x:" + p[0] + " y:" + p[1] + " z:" + p[2]);
+        }
+
+        /// <summary>
+        /// Gest the Src WKT given the EPSG code
+        /// </summary>
+        /// <param name="EPSG"></param>
+        public static string EPSG2WKT(int EPSG) {
+            var src = new OSGeo.OSR.SpatialReference("");
+            src.ImportFromEPSG(EPSG);
+            src.ExportToWkt(out var proj_wkt);
+            return proj_wkt;
         }
 
         /// <summary>
@@ -130,13 +140,15 @@ namespace Test
         }
 
         /// <summary>
-        /// Reproject a raster
+        /// Reproject a raster.
+        /// Working with errors
         /// </summary>
         /// <param name="InputFilePath"></param>
         /// <param name="OutputFilePath"></param>
         /// <param name="EPSG">output EPSG</param>
         public static void RasterReprojection(string InputFilePath, string OutputFilePath, int EPSG) 
         {
+            // TODO: Check for errors!
             var sr = new OSGeo.OSR.SpatialReference(null);
             sr.ImportFromEPSG(EPSG);
             sr.ExportToWkt(out var srs_wkt);
@@ -185,17 +197,17 @@ namespace Test
 
         }
 
-
         /// <summary>
         /// Creates a GeoTIFF file
         /// </summary>
-        /// <param name="InputRaster"></param>
+        /// <param name="GDalOutputDriver">Output driver</param>
+        /// <param name="OutputFile"></param>
         /// <param name="Rows"></param>
         /// <param name="Columns"></param>
-        /// <param name="EPSG"></param>
+        /// <param name="SrcWkt"></param>
         /// <param name="RasterMetadata"></param>
         /// <param name="BandMetadata"></param>
-        public static void CreateRaster(string InputRaster, int Rows, int Columns, double MinX, double MinY, double CellSize, int EPSG, IEnumerable<float[]> BandsValues, string RasterMetadata, string BandMetadata) {
+        public static void CreateRaster(string GDalOutputDriver, string OutputFile, int Rows, int Columns, double MinX, double MinY, double CellSize, string SrcWkt, IEnumerable<float[]> BandsValues, string RasterMetadata, IEnumerable<string> BandMetadata) {
 
             var NumBands = 1;
             if (BandsValues != null) NumBands = BandsValues.Count();
@@ -210,39 +222,33 @@ namespace Test
                 /* -------------------------------------------------------------------- */
                 /*      Get drivers                                                      */
                 /* -------------------------------------------------------------------- */
-                var GeotiffDriver = Gdal.GetDriverByName("GTiff");
+                var GeotiffDriver = Gdal.GetDriverByName(GDalOutputDriver);
+                if (GeotiffDriver == null) {
+                    throw new Exception($"{GDalOutputDriver} GDal driver no encontrado, ¿se ha llamado a la configuración de GDal?");
+                }
 
                 /* -------------------------------------------------------------------- */
                 /*      Create geotiff dataset.                                         */
                 /* -------------------------------------------------------------------- */
                 string[] options = new string [] { $"BLOCKXSIZE={bXSize}", $"BLOCKYSIZE={bYSize}" };
-                using(var ds = GeotiffDriver.Create(InputRaster, width, height, NumBands, DataType.GDT_Float32, options)) {
+                using(var ds = GeotiffDriver.Create(OutputFile, width, height, NumBands, DataType.GDT_Float32, options)) {
                     
                     // Set geo transform
                     // https://stackoverflow.com/questions/27166739/description-of-parameters-of-gdal-setgeotransform
                     var arg = new[] { MinX, CellSize, 0, MinY, 0, CellSize };
                     ds.SetGeoTransform(arg);
-
+                    
                     // Set coordinate system    
-                    var src = new OSGeo.OSR.SpatialReference("");
-                    src.ImportFromEPSG(EPSG);
-                    src.ExportToWkt(out var proj_wkt);
-                    ds.SetProjection(proj_wkt);
+                    ds.SetProjection(SrcWkt);
 
                     // Set metadata
-                    ds.SetMetadataItem("SUAT", RasterMetadata, string.Empty);
+                    ds.SetMetadataItem("SUAT.INCLAM.NET", RasterMetadata, string.Empty);
                     
                     /* -------------------------------------------------------------------- */
                     /*      Setting corner GCPs.                                            */
                     /* -------------------------------------------------------------------- */
-                    /*
-                        GCP[] GCPs = new GCP[] {
-                        new GCP(44.5, 27.5, 0, 0, 0, "info0", "id0"),
-                        new GCP(45.5, 27.5, 0, 100, 0, "info1", "id1"),
-                        new GCP(44.5, 26.5, 0, 0, 100, "info2", "id2"),
-                        new GCP(45.5, 26.5, 0, 100, 100, "info3", "id3")
-                    };
-                    ds.SetGCPs(GCPs, ""); */
+                    //GCP[] GCPs = new GCP[] { new GCP(44.5, 27.5, 0, 0, 0, "info0", "id0"), new GCP(45.5, 27.5, 0, 100, 0, "info1", "id1"), new GCP(44.5, 26.5, 0, 0, 100, "info2", "id2"), new GCP(45.5, 26.5, 0, 100, 100, "info3", "id3") };
+                    //ds.SetGCPs(GCPs, "");
 
                     // Escribir bandas
                     int NumBand = 1;
@@ -254,6 +260,7 @@ namespace Test
                         }
                         var band = ds.GetRasterBand(NumBand);
                         band.SetNoDataValue(-9999.0);
+                        band.SetMetadata(BandMetadata.ElementAt(NumBand-1), "SUAT.INCLAM.NET");
                         band.WriteRaster(0, 0, width, height, BandValues, width, height, 0, 0);
                         band.FlushCache();
                         NumBand++;
@@ -296,9 +303,42 @@ namespace Test
             }
             catch (Exception e)
             {
+                logger.Error(e);
                 Console.WriteLine($"Application error: {e.Message} {Gdal.GetLastErrorMsg()}");
             }
 
+        }
+
+        /// <summary>
+        /// Sets the color table for a raster band
+        /// </summary>
+        /// <param name="band"></param>
+        public static void SetColorTable(Band band) {
+            
+            var ct = new ColorTable(PaletteInterp.GPI_RGB);
+            var colors = new Color[] {
+                Color.FromArgb(150,163, 255, 115),
+                Color.FromArgb(150,38, 115, 0),
+                Color.FromArgb(150,76, 230, 0),
+                Color.FromArgb(150,112, 168, 0),
+                Color.FromArgb(150,0, 92, 255),
+                Color.FromArgb(150,197, 0, 255),
+                Color.FromArgb(150,255, 170, 0),
+                Color.FromArgb(150,0, 255, 197),
+                Color.FromArgb(150,255, 255, 255)
+            };
+
+            var i = 10;
+            foreach(var c in colors) {
+                var ce = new ColorEntry();
+                ce.c4 = c.A;
+                ce.c3 = c.B;
+                ce.c2 = c.G;
+                ce.c1 = c.R;
+                ct.SetColorEntry(i, ce);
+                i+= 10;
+            }
+            band.SetRasterColorTable(ct);
         }
 
         /// <summary>
@@ -348,7 +388,6 @@ namespace Test
                 //gridDS.SetMetadata( {"": '1', 'key2': 'yada'} );
             }
         }
-
 
         /* 
         Codificación de shapefiles (probablemente importante cuando hay que crearlos:)
