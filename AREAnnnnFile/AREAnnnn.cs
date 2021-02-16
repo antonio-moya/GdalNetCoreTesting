@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 using NLog;
 
-namespace McIDAS
+namespace AREAnnnnFile
 {
     /// <summary>
     /// AREAnnnn: encapsula la información contenida en un fichero

@@ -234,7 +234,7 @@ namespace GDalTest
 
             void AREAnnnToGTiff(string input, string output, string raster_medatada, string band_metadata) {
                 
-                var a = new McIDAS.AREAnnnn(input);
+                var a = new AREAnnnnFile.AREAnnnn(input);
                 int NRows = a.getNumFilas;
                 int NCols = a.getNumCols;
                 
