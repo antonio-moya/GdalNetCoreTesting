@@ -77,18 +77,11 @@ namespace GDAL
             logger.Trace(Gdal.VersionInfo("BUILD_INFO"));
 
             var drivers = new List<string>();
-            for (var i = 0; i < Ogr.GetDriverCount(); i++)
-            {
-                drivers.Add(Ogr.GetDriver(i).GetName());
-            }
-            logger.Trace(string.Join(",", drivers));
-            
+            for (var i = 0; i < Ogr.GetDriverCount(); i++) drivers.Add(Ogr.GetDriver(i).GetName());
+            logger.Trace($"OGR Drivers list: {string.Join(",", drivers)}.");            
             drivers = new List<string>();
-            for (var i = 0; i < Gdal.GetDriverCount(); i++)
-            {
-                drivers.Add(Gdal.GetDriver(i).GetDescription());
-            }
-            logger.Trace(string.Join(",", drivers));
+            for (var i = 0; i < Gdal.GetDriverCount(); i++) drivers.Add(Gdal.GetDriver(i).GetDescription());
+            logger.Trace($"GDAL Drivers list: {string.Join(",", drivers)}.");
         }
 
         public static void ReprojectCoordinatesExample() {
@@ -260,7 +253,11 @@ namespace GDAL
                         }
                         var band = ds.GetRasterBand(NumBand);
                         band.SetNoDataValue(-9999.0);
-                        band.SetMetadata(BandMetadata.ElementAt(NumBand-1), "SUAT.INCLAM.NET");
+                        if (BandMetadata!=null) {
+                            if (BandMetadata.ElementAt(NumBand-1) != null) {
+                                band.SetMetadata(BandMetadata.ElementAt(NumBand-1), "SUAT.INCLAM.NET");
+                            }
+                        }
                         band.WriteRaster(0, 0, width, height, BandValues, width, height, 0, 0);
                         band.FlushCache();
                         NumBand++;
@@ -388,6 +385,64 @@ namespace GDAL
                 //gridDS.SetMetadata( {"": '1', 'key2': 'yada'} );
             }
         }
+
+        /// <summary>
+        /// Code Snippet: Read raster block by block
+        /// </summary>
+        /// <param name="valueRaster"></param>
+        private static void ReadRasterBlocks(ref Dataset valueRaster)  
+        {  
+            Band bandValueRaster = valueRaster.GetRasterBand(1);  
+                
+            int rasterRows = valueRaster.RasterYSize;  
+            int rasterCols = valueRaster.RasterXSize;  
+                
+            const int blockSize = 1024;  
+            for(int row=0; row<rasterRows; row += blockSize)  
+            {  
+                int rowProcess;  
+                if(row + blockSize < rasterRows)  
+                {  
+                    rowProcess = blockSize;  
+                }  
+                else  
+                {  
+                    rowProcess = rasterRows - row;  
+                }  
+            
+                for(int col=0; col < rasterCols; col += blockSize)  
+                {  
+                    int colProcess;  
+                    if(col + blockSize < rasterCols)  
+                    {  
+                        colProcess = blockSize;  
+                    }  
+                    else  
+                    {  
+                        colProcess = rasterCols - col;  
+                    }  
+            
+                    double[] valueRasterValues = new double[rowProcess*colProcess];          
+                    bandValueRaster.ReadRaster(col, row, colProcess, rowProcess, valueRasterValues, colProcess,rowProcess, 0, 0);          
+                }  
+            }  
+        }
+
+        /// <summary>
+        /// Code Snippet: Read raster row by row
+        /// </summary>
+        /// <param name="valueRaster"></param>
+        private static void ReadRasterRows(ref Dataset valueRaster)  
+        {  
+            Band bandValueRaster = valueRaster.GetRasterBand(1);  
+            int rasterRows = valueRaster.RasterYSize;  
+            int rasterCols = valueRaster.RasterXSize;  
+            for(int row=0; row <rasterRows; row++)  
+            {  
+                double[] valueRasterValues = new double[rasterCols];  
+                bandValueRaster.ReadRaster(0, row, rasterCols, 1, valueRasterValues, rasterCols, 1, 0, 0);   
+            }                                   
+        } 
 
         /* 
         Codificación de shapefiles (probablemente importante cuando hay que crearlos:)

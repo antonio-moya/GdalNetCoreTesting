@@ -67,7 +67,7 @@ namespace GDalTest
                 System.Environment.Exit(1);
             }
             
-            if (false) {
+            if (true) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("===========================REPROJECTION coordinate testing  (OK)==================================");
                 try
@@ -80,7 +80,7 @@ namespace GDalTest
                 }
             }
 
-           if (false) {
+           if (true) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("===========================GDAL INFO==================================");
                 try
@@ -93,7 +93,7 @@ namespace GDalTest
                 }
             }
 
-            if (false) {
+            if (true) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("========================Crear GTiff y añadir bandas =====================================");
                 try
