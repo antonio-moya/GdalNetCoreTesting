@@ -24,29 +24,19 @@
   <ItemGroup>
     <PackageReference Include="NLog" Version="4.7.5" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(OS)' == 'Unix'">
-    <PackageReference Include="Gdal.Core" Version="2.3.0-beta-024-1801" />
-    <PackageReference Include="Gdal.Core.LinuxRuntime" Version="2.3.0-beta-024-1840" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(OS)' != 'Unix'">
-      <PackageReference Include="Gdal.Core" Version="2.3.0-beta-023" />
-      <PackageReference Include="Gdal.Core.WindowsRuntime" Version="2.3.0-beta-023" />
+    <PackageReference Include="MaxRev.Gdal.Core" Version="3.2.0.250" />
+    <PackageReference Include="MaxRev.Gdal.LinuxRuntime.Minimal" Version="3.2.0.250" />
+    <PackageReference Include="MaxRev.Gdal.WindowsRuntime.Minimal" Version="3.2.0.250" />
   </ItemGroup>
 
+  <!-- Copy Settings -->
   <ItemGroup>
     <Content Include="nlog.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-  
-  <!-- Copy GDAL data -->
-  <ItemGroup>
-    <Content Include="gdal-data/*.*">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="appsettings*.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  
 </Project>

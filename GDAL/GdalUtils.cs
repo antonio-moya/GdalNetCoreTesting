@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using MaxRev.Gdal.Core;
 using NLog;
 using OSGeo.GDAL;
 using OSGeo.OGR;
@@ -36,39 +37,7 @@ namespace GDAL
         /// <summary>
         /// Configure and initialize GDAL libraries
         /// </summary>
-        /// <param name="PathGdalBin">GDAL binaries</param>
-        /// <param name="PathGdalDriver">GDAL drivers/plugins binaries</param>
-        /// <param name="PathGdalData">EPSG CSV files, S-57 definition files, DXF header and footer files, ...</param>
-        public static void Configure(string PathGdalBin, string PathGdalDriver, string PathGdalData)
-        {
-            // Add GDal binaries to system PATH
-            if (Directory.Exists(PathGdalBin) && !string.IsNullOrEmpty(PathGdalBin)) {
-                string pathEnv = Environment.GetEnvironmentVariable("PATH");
-                if (!pathEnv.Contains(PathGdalBin))
-                {
-                    Environment.SetEnvironmentVariable("PATH", PathGdalBin + ";" + pathEnv);
-                }
-            }
-                
-            // Path to directory containing various GDAL data files
-            //   (EPSG CSV files, S-57 definition files, DXF header and footer files, ...).
-            // This option is read by the GDAL and OGR driver registration functions. 
-            // It is used to expand EPSG codes into their description in the OSR model (WKT based).
-            if (Directory.Exists(PathGdalData) && !string.IsNullOrEmpty(PathGdalData)) {
-                OSGeo.GDAL.Gdal.SetConfigOption("GDAL_DATA", PathGdalData);
-            }
-            
-            // Path to directory containing driver files that start with the prefix "gdal_X.dll".
-            if (Directory.Exists(PathGdalDriver) && !string.IsNullOrEmpty(PathGdalDriver)) {
-                OSGeo.GDAL.Gdal.SetConfigOption("GDAL_DRIVER_PATH", PathGdalDriver);
-            }
-            
-            // This line throws an exception if the the wrong version of GDal was found in the path somewhere,
-            // or the path didn't point to GDal correctly.
-            OSGeo.OGR.Ogr.RegisterAll();
-            OSGeo.GDAL.Gdal.AllRegister();
-
-        }
+        public static void Configure() => GdalBase.ConfigureAll();
 
         public static void GetGdalInfo()
         {            
@@ -105,7 +74,7 @@ namespace GDAL
         public static string EPSG2WKT(int EPSG) {
             var src = new OSGeo.OSR.SpatialReference("");
             src.ImportFromEPSG(EPSG);
-            src.ExportToWkt(out var proj_wkt);
+            src.ExportToWkt(out var proj_wkt, null);
             return proj_wkt;
         }
 
@@ -144,7 +113,7 @@ namespace GDAL
             // TODO: Check for errors!
             var sr = new OSGeo.OSR.SpatialReference(null);
             sr.ImportFromEPSG(EPSG);
-            sr.ExportToWkt(out var srs_wkt);
+            sr.ExportToWkt(out var srs_wkt, null);
 
             // reproject raster and save to EHdr
             using( var srcDs = Gdal.Open(InputFilePath, Access.GA_ReadOnly))
@@ -178,7 +147,7 @@ namespace GDAL
                 // Generate layer to save Contourlines in
                 using(var ogr_ds = Ogr.GetDriverByName("ESRI Shapefile").CreateDataSource(OutputShp,  new string[] { "srs", dsc.GetProjection() })) {
 
-                    var srs = new SpatialReference(dsc.GetProjection());
+                    var srs = new OSGeo.OSR.SpatialReference(dsc.GetProjection());
                     var contour_shp = ogr_ds.CreateLayer("contour", srs, wkbGeometryType.wkbLineString, null);
                     contour_shp.CreateField(new FieldDefn("ID", FieldType.OFTInteger), 1);
                     contour_shp.CreateField(new FieldDefn("ELEVATION", FieldType.OFTReal), 2);

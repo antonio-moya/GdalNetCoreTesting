@@ -85,8 +85,8 @@ namespace GDAL
 
             // Extract srs from input feature and Assign to outpur raster  
             string inputShapeSrs;  
-            SpatialReference spatialRefrence = layer.GetSpatialRef();  
-            spatialRefrence.ExportToWkt(out inputShapeSrs);  
+            var spatialRefrence = layer.GetSpatialRef();  
+            spatialRefrence.ExportToWkt(out inputShapeSrs, null);  
             outputDataset.SetProjection(inputShapeSrs);  
 
             //Set Geotransform  

@@ -44,12 +44,12 @@ namespace GDalTest
             List<string> PolygonsLayers = config.GetSection("CATCHMENTS_LAYERS").Get<List<string>>();
 
             /* -------------------------------------------------------------------- */
-            /*      Configure GDal driver(s).                                             */
+            /*      Configure GDal driver(s).                                       */
             /* -------------------------------------------------------------------- */
             try
             {            
                 Gdal.PushErrorHandler (new Gdal.GDALErrorHandlerDelegate (GdalUtils.GDalErrorHandler));
-                GdalUtils.Configure(config["GDAL:PATH_GDAL_BIN"], config["GDAL:PATH_GDAL_DRIVER"], config["GDAL:PATH_GDAL_DATA"]);
+                GdalUtils.Configure();
                 Gdal.UseExceptions();   
             }
             catch (Exception ex)
