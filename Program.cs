@@ -41,14 +41,17 @@ namespace GDalTest
             config = builder.Build();
             logger.Debug($"Configuration: {config.GetDebugView()}");
             // https://blog.bitscry.com/2017/11/14/reading-lists-from-appsettings-json/
-            List<string> PolygonsLayers = config.GetSection("CATCHMENTS_LAYERS").Get<List<string>>();
+            //List<string> PolygonsLayers = config.GetSection("CATCHMENTS_LAYERS").Get<List<string>>();
+
+            var datapath = config["DATA_PATH"];
+            if (!Directory.Exists(datapath)) logger.Error($"No se ha encontrado la ruta de datos {datapath}");
 
             /* -------------------------------------------------------------------- */
             /*      Configure GDal driver(s).                                       */
             /* -------------------------------------------------------------------- */
             try
             {            
-                Gdal.PushErrorHandler (new Gdal.GDALErrorHandlerDelegate (GdalUtils.GDalErrorHandler));
+                Gdal.PushErrorHandler (GdalUtils.GDalErrorHandler);
                 GdalUtils.Configure();
                 Gdal.UseExceptions();   
             }
@@ -57,8 +60,7 @@ namespace GDalTest
                 logger.Error(ex, ex.StackTrace + " " + Gdal.GetLastErrorMsg());
             }
 
-            var datapath = config["DATA_PATH"];
-
+            // Lectura de datos de AEMet de GNavarra y traducción a TIFF
             if (false) {
                 var TarsDir = @"C:\XXX\GeoTiffTests\data\GNavarra_AEMet.tar\Radar\RAD_ZAR.2021030.00.tar\";
                 foreach(var f in Directory.GetFiles(TarsDir, "*.tar")) {
@@ -66,21 +68,28 @@ namespace GDalTest
                 }
                 System.Environment.Exit(1);
             }
-            
+            // Equal rasters sum
+            if (false) {
+                Console.WriteLine("===================================================================");
+                Console.WriteLine("===========================SUM rasters (--)==================================");
+                var InputRaster = Path.Combine(datapath, "2021036.120000.RAD_ZAR - copia.tiff");
+                GdalUtils.SumRasters(Directory.GetFiles(datapath, "2021036.??0000.RAD_ZAR.tiff"), Path.Combine(datapath, "sumaParalelo.tiff"));
+            }
+            // Coordinates reprojection
             if (true) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("===========================REPROJECTION coordinate testing  (OK)==================================");
                 try
                 {
-                    GdalUtils.ReprojectCoordinatesExample();
+                    var ret = GdalUtils.ReprojectCoordinates(23030,4326, 85530d, 446100d, 0d);
                 }
                 catch (Exception ex)
                 {
                     logger.Error(ex, ex.StackTrace + " " +  Gdal.GetLastErrorMsg());
                 }
             }
-
-           if (true) {
+            // Gdal info: información sobre la carga de GDAL
+            if (true) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("===========================GDAL INFO==================================");
                 try
@@ -92,8 +101,8 @@ namespace GDalTest
                     logger.Error(ex, Gdal.GetLastErrorMsg());
                 }
             }
-
-            if (true) {
+            // Create TIFF and adding bands
+            if (false) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("========================Crear GTiff y añadir bandas =====================================");
                 try
@@ -123,7 +132,7 @@ namespace GDalTest
                     logger.Error(ex, Gdal.GetLastErrorMsg());
                 }
             }
-
+            // Raster reprojection
             if (false) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("========================Raster reprojection =====================================");
@@ -140,7 +149,7 @@ namespace GDalTest
                     logger.Error(ex, Gdal.GetLastErrorMsg());
                 }
             }
-
+            // GDAL Translate GRIB2 => GTiff
             if (false) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("========================Translate GRIB2 => GTiff (OK) =====================================");
@@ -157,20 +166,59 @@ namespace GDalTest
                     logger.Error(ex, Gdal.GetLastErrorMsg());
                 }
             }
-
-            if (false) {
+            // IDW with gradient correction
+            if (true) {
                 Console.WriteLine("===================================================================");
-                Console.WriteLine("========================IDW (OK)=====================================");
+                Console.WriteLine("========================IDW con gradiente (OK)=====================================");
                 try
                 {
-                    GdalUtils.IdwInterpolation(Path.Combine(datapath, "pluviometros_23030.shp"),Path.Combine(datapath, "pluviometrosIDW.tiff"));
+                    double CellSize = 10000;
+                    double xMin = 360000;
+                    double yMax = 4830000;
+                    int NumCols = 59;
+                    int NumRows = 39;
+                    double yMin = yMax - (NumRows*CellSize);
+                    double xMax = xMin + (NumCols*CellSize);
+                    Random random = new Random();
+                    double GetRandomNumber(double minimum, double maximum)
+                    { 
+                        return random.NextDouble() * (maximum - minimum) + minimum;
+                    }
+
+                    for(int i=1;i<500;i++) {
+                        var Points = new List<OSGeo.OGR.Geometry>();
+                        // Add more points
+                        for(int w=1; w<(10*i);w++) {
+                                var pnew = new Geometry(wkbGeometryType.wkbPoint);
+                                pnew.AddPointZM(
+                                    GetRandomNumber(xMin, xMax), 
+                                    GetRandomNumber(yMin, yMax), 
+                                    GetRandomNumber(100, 300), 
+                                    GetRandomNumber(0, 10));
+                                Points.Add(pnew);
+                        }
+                        SurfaceInterpolations.IdwTemperaturesWithElevationCorrection(Path.Combine(datapath, $"IdwTemperaturesWithElevationCorrection_{Points.Count}.tiff"), Points);
+                    }
                 }
                 catch (System.Exception ex)
                 {
                     logger.Error(ex, Gdal.GetLastErrorMsg());
                 }
             }
-
+            // IDW with NearestNeighbour
+            if (false) {
+                Console.WriteLine("===================================================================");
+                Console.WriteLine("========================IDW NN (OK)=====================================");
+                try
+                {
+                    SurfaceInterpolations.IDWwithNearestNeighbour(Path.Combine(datapath, "pluviometros_23030.shp"),Path.Combine(datapath, "pluviometrosIDW.tiff"));
+                }
+                catch (System.Exception ex)
+                {
+                    logger.Error(ex, Gdal.GetLastErrorMsg());
+                }
+            }
+            // Create contour
             if (false) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("========================Contour (OK)=====================================");
@@ -187,19 +235,17 @@ namespace GDalTest
                     logger.Error(ex, Gdal.GetLastErrorMsg());
                 }
             }
-
+            // Raster info: Geotiff multiband
             if (false) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("=============================Info GEOTIFF Multiband======================================");
                 GDALInfo.Info(Path.Combine(datapath,"CHEBROe00.20201125.tif"), false);
             }
+            // Raster info: GRIB2 multiband
             if (false) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("==============================Info GRIB2=====================================");
                 GDALInfo.Info(Path.Combine(datapath,"CHEBROe00.20201125.grib2"), true);   
-            }
-            if (false) {
-                //SepararEnBandas(Path.Combine(datapath,"CHEBROe00.20201125.grib2"));    
             }
 
         }
