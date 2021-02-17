@@ -184,21 +184,20 @@ namespace GDalTest
                     { 
                         return random.NextDouble() * (maximum - minimum) + minimum;
                     }
-
-                    for(int i=1;i<500;i++) {
-                        var Points = new List<OSGeo.OGR.Geometry>();
-                        // Add more points
-                        for(int w=1; w<(10*i);w++) {
-                                var pnew = new Geometry(wkbGeometryType.wkbPoint);
-                                pnew.AddPointZM(
-                                    GetRandomNumber(xMin, xMax), 
-                                    GetRandomNumber(yMin, yMax), 
-                                    GetRandomNumber(100, 300), 
-                                    GetRandomNumber(0, 10));
-                                Points.Add(pnew);
-                        }
-                        SurfaceInterpolations.IdwTemperaturesWithElevationCorrection(Path.Combine(datapath, $"IdwTemperaturesWithElevationCorrection_{Points.Count}.tiff"), Points);
+                    int NumTermometros = 350;
+                    var Points = new List<OSGeo.OGR.Geometry>();
+                    // Add more points
+                    for(int w=1; w<NumTermometros;w++) {
+                            var pnew = new Geometry(wkbGeometryType.wkbPoint);
+                            pnew.AddPointZM(
+                                GetRandomNumber(xMin, xMax), 
+                                GetRandomNumber(yMin, yMax), 
+                                GetRandomNumber(100, 300), 
+                                GetRandomNumber(0, 10));
+                            Points.Add(pnew);
                     }
+                    SurfaceInterpolations.IdwTemperaturesWithElevationCorrection(Path.Combine(datapath, $"IdwTemperaturesWithElevationCorrection_{Points.Count}.tiff"), Points);
+
                 }
                 catch (System.Exception ex)
                 {
