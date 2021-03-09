@@ -60,11 +60,34 @@ namespace GDalTest
                 logger.Error(ex, ex.StackTrace + " " + Gdal.GetLastErrorMsg());
             }
 
-            // Lectura de datos de AEMet de GNavarra y traducción a TIFF
+            // Lectura de datos de AEMet de GNavarra (radares individuales) y traducción a TIFF
             if (false) {
                 var TarsDir = @"C:\XXX\GeoTiffTests\data\GNavarra_AEMet.tar\Radar\RAD_ZAR.2021030.00.tar\";
                 foreach(var f in Directory.GetFiles(TarsDir, "*.tar")) {
                     ReadAEMetRadarFile(f, datapath);
+                }
+                System.Environment.Exit(1);
+            }
+
+            // Lectura de datos de AEMet (composición radar) y traducción a GeoTIFF
+            if (true) {
+                var GZsDir = @"C:\Users\Administrador.000\Desktop\Nueva carpeta\";
+                foreach(var f in Directory.GetFiles(GZsDir, "ACUM-RAD-*.gz")) {
+                    Console.WriteLine(f);
+                    UncompressFiles(f, GZsDir);
+                }
+                foreach(var f in Directory.GetFiles(GZsDir, "AREA????")) {
+                    
+                    var output = Path.ChangeExtension(f, ".tiff");
+                    if (File.Exists(output)) File.Delete(output);
+
+                    object raster_metedata =  new { 
+                        type = "AEMet_radar",
+                        ogirin = $"{f}",
+                        creation_time_utc = DateTime.Now.ToUniversalTime().ToString("yyyyMMddHHmmss")
+                    };
+                    AREAnnnToGTiff(f, output, JsonConvert.SerializeObject(raster_metedata), JsonConvert.SerializeObject( new {} ));
+                    logger.Info($"Creado {output} desde AREAnnnn ({f})");
                 }
                 System.Environment.Exit(1);
             }
@@ -167,7 +190,7 @@ namespace GDalTest
                 }
             }
             // IDW with gradient correction
-            if (true) {
+            if (false) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("========================IDW con gradiente (OK)=====================================");
                 try
@@ -260,51 +283,6 @@ namespace GDalTest
             foreach(var f in Directory.GetFiles(directoryPath, "*.A01-A-N.gz")) {
                 UncompressFiles(f, directoryPath);
             }
-            
-            //https://stackoverflow.com/questions/8863875/decompress-tar-files-using-c-sharp
-            void UncompressFiles(string tarFilePath, string directoryPath)
-            {
-                using (Stream stream = File.OpenRead(tarFilePath))
-                {
-                    var reader = ReaderFactory.Open(stream);
-                    while (reader.MoveToNextEntry())
-                    {
-                        if (!reader.Entry.IsDirectory)
-                        {
-                            var opt = new ExtractionOptions { ExtractFullPath = true, Overwrite = true };
-                            reader.WriteEntryToDirectory(directoryPath, opt);
-                        }
-                    }
-                }
-            }
-
-            void AREAnnnToGTiff(string input, string output, string raster_medatada, string band_metadata) {
-                
-                var a = new AREAnnnnFile.AREAnnnn(input);
-                int NRows = a.getNumFilas;
-                int NCols = a.getNumCols;
-                
-                double dX = 1000d * a.getResCols * a.GetXSpace();
-                //double dY = 1000d * a.getResFilas * a.GetXSpace(); no es necesario, se asume malla cuadrada.
-                double MinX=0, MinY=0;
-                a.File2Coods(ref MinX, ref MinY, a.getNumFilas,1);                
-
-                // Datos de la malla en formato "GDAL"
-                var d = a.GetDatos();
-                var datos = new float[a.getNumFilas*a.getNumCols];
-                var cont = 0;
-                for (int i = a.getNumFilas-1; i >=0; i--) {
-                    for (int j = 0; j < a.getNumCols; j++) {
-                        datos[cont] = d[i,j];
-                        cont++;
-                    }
-                }
-
-                // Sistema de coordenadas
-                string EsriWkt = config["RADAR_AEMET:PROJ_ESRI_WKT"];
-
-                GdalUtils.CreateRaster("GTiff", output, NRows, NCols, MinX, MinY, dX, EsriWkt, new List<float[]>() { datos }, raster_medatada, new List<string>() { band_metadata } );
-            }
 
             // Umcompressed AREAnnn files to GeoTIFF
             foreach(var f in Directory.GetFiles(directoryPath, "*.A01-A-N")) {
@@ -324,6 +302,49 @@ namespace GDalTest
                 logger.Info($"Creado {result} desde AREAnnnn ({TarFilePath})");
             }
             if (Directory.Exists(directoryPath)) Directory.Delete(directoryPath, true);
+        }
+
+        private static void AREAnnnToGTiff(string input, string output, string raster_medatada, string band_metadata) {
+            
+            var a = new AREAnnnnFile.AREAnnnn(input);
+            int NRows = a.getNumFilas;
+            int NCols = a.getNumCols;
+            
+            double dX = 1000d * a.getResCols * a.GetXSpace();
+            //double dY = 1000d * a.getResFilas * a.GetXSpace(); no es necesario, se asume malla cuadrada.
+            double MinX=0, MinY=0;
+            a.File2Coods(ref MinX, ref MinY, a.getNumFilas,1);                
+
+            // Datos de la malla en formato "GDAL"
+            var d = a.GetDatos();
+            var datos = new float[a.getNumFilas*a.getNumCols];
+            var cont = 0;
+            for (int i = a.getNumFilas-1; i >=0; i--) {
+                for (int j = 0; j < a.getNumCols; j++) {
+                    datos[cont] = d[i,j];
+                    cont++;
+                }
+            }
+            // Sistema de coordenadas
+            string EsriWkt = config["RADAR_AEMET:PROJ_ESRI_WKT"];
+            GdalUtils.CreateRaster("GTiff", output, NRows, NCols, MinX, MinY, dX, EsriWkt, new List<float[]>() { datos }, raster_medatada, new List<string>() { band_metadata } );
+        }
+
+        //https://stackoverflow.com/questions/8863875/decompress-tar-files-using-c-sharp
+        private static void UncompressFiles(string tarFilePath, string directoryPath)
+        {
+            using (Stream stream = File.OpenRead(tarFilePath))
+            {
+                var reader = ReaderFactory.Open(stream);
+                while (reader.MoveToNextEntry())
+                {
+                    if (!reader.Entry.IsDirectory)
+                    {
+                        var opt = new ExtractionOptions { ExtractFullPath = true, Overwrite = true };
+                        reader.WriteEntryToDirectory(directoryPath, opt);
+                    }
+                }
+            }
         }
 
     }
