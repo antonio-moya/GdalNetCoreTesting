@@ -175,9 +175,10 @@ namespace GDAL
         /// <param name="Rows"></param>
         /// <param name="Columns"></param>
         /// <param name="SrcWkt"></param>
+        /// <param name="GeoTransform"></param>
         /// <param name="RasterMetadata"></param>
         /// <param name="BandMetadata"></param>
-        public static void CreateRaster(string GDalOutputDriver, string OutputFile, int Rows, int Columns, double MinX, double MinY, double CellSize, string SrcWkt, IEnumerable<float[]> BandsValues, string RasterMetadata, IEnumerable<string> BandMetadata) {
+        public static void CreateRaster(string GDalOutputDriver, string OutputFile, int Rows, int Columns, double MinX, double MinY, double CellSize, string SrcWkt, double[] GeoTransform, IEnumerable<float[]> BandsValues, string RasterMetadata, IEnumerable<string> BandMetadata) {
 
             var NumBands = 1;
             if (BandsValues != null) NumBands = BandsValues.Count();
@@ -205,8 +206,7 @@ namespace GDAL
                     
                     // Set geo transform
                     // https://stackoverflow.com/questions/27166739/description-of-parameters-of-gdal-setgeotransform
-                    var arg = new[] { MinX, CellSize, 0, MinY, 0, CellSize };
-                    ds.SetGeoTransform(arg);
+                    ds.SetGeoTransform(GeoTransform);
                     
                     // Set coordinate system    
                     ds.SetProjection(SrcWkt);
@@ -380,17 +380,34 @@ namespace GDAL
         /// <param name="InputRaster"></param>
         /// <param name="Band"></param>
         /// <returns></returns>
-        public static float[][] GetBandData(string InputRaster, int Band = 0) {
+        public static float[][] GetBandDataFloat(string InputRaster, int Band = 1) {
             float[][] ret = null;
             using(var ds = Gdal.Open(InputRaster, Access.GA_ReadOnly)) {
                 var band = ds.GetRasterBand(Band);
                 int width = ds.RasterXSize;
                 int height = ds.RasterYSize;
                 ret = new float[height][];
-
+                
                 for(int row=0; row <height; row++)  
                 {  
                     ret[row] = new float[width];
+                    band.ReadRaster(0, row, width, 1, ret[row], width, 1, 0, 0);   
+                }
+            }
+            return ret;
+        }
+
+        public static Int16[][] GetBandDataInt16(string InputRaster, int Band = 1) {
+            short[][] ret = null;
+            using(var ds = Gdal.Open(InputRaster, Access.GA_ReadOnly)) {
+                var band = ds.GetRasterBand(Band);
+                int width = ds.RasterXSize;
+                int height = ds.RasterYSize;
+                ret = new short[height][];
+                
+                for(int row=0; row <height; row++)  
+                {  
+                    ret[row] = new short[width];
                     band.ReadRaster(0, row, width, 1, ret[row], width, 1, 0, 0);   
                 }
             }

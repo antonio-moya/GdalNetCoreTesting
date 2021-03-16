@@ -11,11 +11,13 @@ using OSGeo.OGR;
 using OSGeo.OSR;
 using SharpCompress.Common;
 using SharpCompress.Readers;
+using System.Linq;
 
 namespace GDalTest
 {
     /// <summary>
     /// Todo esto en: https://github.com/bertt/GdalOnNetCoreSample
+    /// Zonal Statistics: https://gis.stackexchange.com/questions/208441/zonal-statistics-of-a-polygon-and-assigning-mean-value-to-the-polygon
     /// </summary>
     class Program
     {
@@ -70,7 +72,7 @@ namespace GDalTest
             }
 
             // Lectura de datos de AEMet (composición radar) y traducción a GeoTIFF
-            if (true) {
+            if (false) {
                 var GZsDir = @"C:\Users\Administrador.000\Desktop\Nueva carpeta\";
                 foreach(var f in Directory.GetFiles(GZsDir, "ACUM-RAD-*.gz")) {
                     Console.WriteLine(f);
@@ -91,6 +93,36 @@ namespace GDalTest
                 }
                 System.Environment.Exit(1);
             }
+
+            // Lectura de ficheros CRR-Ph, obtención de la banda de acumulación de lluvia y traducción a GeoTIFF
+            if (false) {
+                var BAND_NAME = "crrph_accum";
+                foreach(var netcdf in Directory.GetFiles("C:/XXX/Navarra/smb-gnavarra-crr/", "*.nc")) 
+                {
+                    logger.Info($"CRR-Ph NetCDf to GeoTIFF {netcdf}");
+                    object raster_metedata =  new { 
+                        type = "CRR-Ph",
+                        ogirin = $"{netcdf}",
+                        creation_time_utc = DateTime.Now.ToUniversalTime().ToString("yyyyMMddHHmmss")
+                    };
+                    using (Dataset ds = Gdal.Open(netcdf, Access.GA_ReadOnly))
+                    {
+                        var list = ds.GetMetadata("SUBDATASETS").Cast<string>().ToList();
+                        //Console.WriteLine($"  {string.Join(" \r\n", list)}");
+                        foreach(var subdataset in list.Where(s => s.Contains("_NAME=") && s.Contains(BAND_NAME, StringComparison.OrdinalIgnoreCase))) {
+                            logger.Info($"Subdataset: {subdataset}");
+                            Console.WriteLine($"  {subdataset}");
+                            var InputFileName = subdataset.Split("=")[1];
+                            var OutputFileName = $"C:/XXX/Navarra/smb-gnavarra-crr/{Path.GetFileNameWithoutExtension(netcdf)}_{subdataset.Split("//")[1]}.tiff";
+                            CrrPhNetCDFToGTiff(InputFileName, OutputFileName, JsonConvert.SerializeObject(raster_metedata), JsonConvert.SerializeObject( new {} ));
+                        }
+                    }
+
+                };
+                //var netcdf = "C:/XXX/Navarra/smb-gnavarra-crr/S_NWC_CRR-Ph_MSG4_AEMET-VISIR_20210310T230000Z.nc";                
+                //-2854883.8 3000.4033 0 4979169.5 0 -3000.4033
+            }
+
             // Equal rasters sum
             if (false) {
                 Console.WriteLine("===================================================================");
@@ -99,7 +131,7 @@ namespace GDalTest
                 GdalUtils.SumRasters(Directory.GetFiles(datapath, "2021036.??0000.RAD_ZAR.tiff"), Path.Combine(datapath, "sumaParalelo.tiff"));
             }
             // Coordinates reprojection
-            if (true) {
+            if (false) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("===========================REPROJECTION coordinate testing  (OK)==================================");
                 try
@@ -112,7 +144,7 @@ namespace GDalTest
                 }
             }
             // Gdal info: información sobre la carga de GDAL
-            if (true) {
+            if (false) {
                 Console.WriteLine("===================================================================");
                 Console.WriteLine("===========================GDAL INFO==================================");
                 try
@@ -148,7 +180,8 @@ namespace GDalTest
                                 buffer[i * Ncols + j] = (float)(i * 256 / Ncols) * band;
                         valores.Add(buffer);
                     }
-                    GdalUtils.CreateRaster("GTiff", output, NRows,Ncols,MinX, MinY,CellSize, src_wkt, valores, null, null);
+                    var GeoTrans = new[] { MinX, CellSize, 0, MinY, 0, CellSize };
+                    GdalUtils.CreateRaster("GTiff", output, NRows,Ncols,MinX, MinY,CellSize, src_wkt, GeoTrans, valores, null, null);
                 }
                 catch (System.Exception ex)
                 {
@@ -327,7 +360,8 @@ namespace GDalTest
             }
             // Sistema de coordenadas
             string EsriWkt = config["RADAR_AEMET:PROJ_ESRI_WKT"];
-            GdalUtils.CreateRaster("GTiff", output, NRows, NCols, MinX, MinY, dX, EsriWkt, new List<float[]>() { datos }, raster_medatada, new List<string>() { band_metadata } );
+            var GeoTrans = new[] { MinX, dX, 0, MinY, 0, dX };
+            GdalUtils.CreateRaster("GTiff", output, NRows, NCols, MinX, MinY, dX, EsriWkt, GeoTrans, new List<float[]>() { datos }, raster_medatada, new List<string>() { band_metadata } );
         }
 
         //https://stackoverflow.com/questions/8863875/decompress-tar-files-using-c-sharp
@@ -345,6 +379,37 @@ namespace GDalTest
                     }
                 }
             }
+        }
+
+        private static void CrrPhNetCDFToGTiff(string input, string output, string raster_medatada, string band_metadata) {
+            
+            short[][] data = GdalUtils.GetBandDataInt16(input, 1);
+
+            int NRows = data.Length;
+            int NCols = data[0].Length;
+            
+            double dX = 3000.4033;
+            double MinX=-2854883.8, MinY=2278806.5;
+
+            //GdalUtils.GDALInfoGetPosition()
+            //a.File2Coods(ref MinX, ref MinY, a.getNumFilas,1);                
+
+            // Datos de la malla en formato "GDAL"
+            var datos = new float[NRows*NCols];
+            var cont = 0;
+            for (int i = NRows-1; i >=0; i--) {
+                //Array.Copy(data[i], 0, datos, i*NCols, data[i].Length);
+                for (int j = 0; j < NCols; j++) {
+                    datos[cont] = data[i][j];
+                    cont++;
+                }
+            }
+            // Sistema de coordenadas
+            string EsriWkt = config["CRR-Ph:PROJ_ESRI_WKT_2"];
+            Console.WriteLine("============= " + EsriWkt);
+            var YMax = 4979169.5;
+            var GeoTrans = new[] { MinX,dX,0,YMax,0,-dX };
+            GdalUtils.CreateRaster("GTiff", output, NRows, NCols, MinX, MinY, dX, EsriWkt, GeoTrans, new List<float[]>() { datos }, raster_medatada, new List<string>() { band_metadata } );
         }
 
     }

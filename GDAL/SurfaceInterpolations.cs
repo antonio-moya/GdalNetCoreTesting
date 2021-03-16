@@ -208,7 +208,8 @@ namespace GDAL
             // Create output GTiff
             if (File.Exists(OutputGTiffFile)) File.Delete(OutputGTiffFile);
             string EsriWkt = GdalUtils.EPSG2WKT(EPSG);
-            GdalUtils.CreateRaster("GTiff", OutputGTiffFile, NumRows, NumCols, xMin, yMin, CellSize, EsriWkt, new List<float[]>() { datos }, null, null );
+            var GeoTrans = new[] { xMin, CellSize, 0, yMin, 0, CellSize };
+            GdalUtils.CreateRaster("GTiff", OutputGTiffFile, NumRows, NumCols, xMin, yMin, CellSize, EsriWkt, GeoTrans, new List<float[]>() { datos }, null, null );
             logger.Trace($"Creado {OutputGTiffFile}");
         }
     }
