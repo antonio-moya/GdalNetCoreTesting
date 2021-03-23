@@ -433,6 +433,22 @@ namespace GDAL
         }
 
         /// <summary>
+        /// Coordinates (X,Y) to pixels (COLUMN, ROW)
+        /// </summary>
+        /// <param name="ds"></param>
+        /// <param name="X"></param>
+        /// <param name="Y"></param>
+        /// <returns></returns>
+        public static int[] GDALInfoGetRowCol(Dataset ds, double X, double Y)
+        {
+            double[] gt = new double[6];
+            ds.GetGeoTransform(gt);
+            int px = (int)((X - gt[0]) / gt[1]);
+            int py = (int)((Y - gt[3]) / gt[5]);
+            return new int[] {px,py};
+        }
+
+        /// <summary>
         /// Code Snippet: Read raster block by block
         /// </summary>
         /// <param name="valueRaster"></param>
