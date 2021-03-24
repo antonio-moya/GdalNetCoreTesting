@@ -506,6 +506,41 @@ namespace GDAL
             }                                   
         } 
 
+        /// <summary>
+        /// Creates a points shapefile
+        /// </summary>
+        /// <param name="FileName"></param>
+        private static void TestCreatePointsShapeFile(string FileName) {
+
+            var points = new List<string>() {"P1", "P2", "P3", "P4" };
+    
+            OSGeo.OGR.Driver drv = Ogr.GetDriverByName("ESRI Shapefile");
+            using(var ds = drv.CreateDataSource(FileName, new string[] {} )) {
+                var src = new OSGeo.OSR.SpatialReference("");
+                src.ImportFromEPSG(23030);
+                using(var layer = ds.CreateLayer("SENSORS", src, wkbGeometryType.wkbPoint, new string[] {} )) {
+                    FieldDefn fdefn = new FieldDefn("ID", FieldType.OFTString);
+                    fdefn.SetWidth(32);
+                    layer.CreateField(fdefn,1);
+                    fdefn = new FieldDefn("FIELD_2", FieldType.OFTReal);
+                    layer.CreateField(fdefn,1);
+
+                    foreach(var s in points) {
+                        Feature feature = new Feature( layer.GetLayerDefn() );
+                        feature.SetField( "ID", s );
+                        feature.SetField( "FIELD_2", 123.4d );
+                        var geom = new Geometry(wkbGeometryType.wkbPoint);
+                        double X = 123.4;
+                        double Y = 123.4;
+                        geom.AddPointZM(X, Y, 123.4d, 0d);
+                        feature.SetGeometry(geom);
+                        layer.CreateFeature(feature);
+                    }
+                }
+                ds.FlushCache();
+            }
+        }
+
         /* 
         Codificación de shapefiles (probablemente importante cuando hay que crearlos:)
         https://www.programmersought.com/article/9249124261/
